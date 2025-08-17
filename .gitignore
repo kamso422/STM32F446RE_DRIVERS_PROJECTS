@@ -1,0 +1,8 @@
+.cproject
+Debug
+.git
+.project
+.settings
+Startup
+*.launch
+*.ld
