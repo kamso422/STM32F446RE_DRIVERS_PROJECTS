@@ -21,6 +21,7 @@
 #include "STM32F44xxSPI__driver.h"
 #include <stdlib.h>
 #include <string.h>
+#define delay for(uint32_t i = 0; i < 250000; i++)
 
 /*
  * Create a function for sending out data using
@@ -32,14 +33,28 @@ SPI_Handle_t theSpi;
 
 int main(void)
 {
+	uint8_t dummyRx = 0;
+	uint8_t dummyRead[13];
 	RESET_SPI1_REG();
     char* TxBuffer = "Hello World";
     uint8_t length = strlen(TxBuffer);
     gpio_handle_t SPI_Pin;
+    gpio_handle_t button;
     memset(&SPI_Pin,0,sizeof(gpio_handle_t));
+    memset(&button,0,sizeof(gpio_handle_t));
 
     //Enable peripheral Clock for GPIO pins
     GPIO_PeriClockControl(GPIOA, ENABLE);
+
+    //Set up the button
+    button.gpioReg = GPIOA;
+    button.gpioConfigure.MODE = GPIO_MODE_INPUT;
+    button.gpioConfigure.OSPEED = GPIO_LOW_SPEED;
+    button.gpioConfigure.OTYPE = GPIO_PP;
+    button.gpioConfigure.PUPD = GPIO_PU;
+    button.gpioConfigure.pinNumber = GPIO_PIN_NO_8;
+
+    gpioInit(&button);
 
     //Set up the SPI1 pins
     SPI_Pin.gpioReg = GPIOA;
@@ -68,7 +83,7 @@ int main(void)
     SPI_PeriClockControl(SPI1, ENABLE);
     //Initialize the SPI peripheral
     theSpi.pSPIx = SPI1;
-    theSpi.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_SIMPLEX_TXONLY;
+    theSpi.SPIConfig.SPI_BusConfig = SPI_BUS_CONFIG_FD;
     theSpi.SPIConfig.SPI_CPHA = SPI_CPHA1;
     theSpi.SPIConfig.SPI_CPOL = SPI_CPOL0;
     theSpi.SPIConfig.SPI_DFF = DFF8;
@@ -81,12 +96,20 @@ int main(void)
     SPI_IRQConfig(SPI1_IRQ_NUM, ENABLE);
 
     setSSOE(SPI1, ENABLE);
+    while(1){
+
+    while(GPIO_ReadFromInputPin(GPIOA, GPIO_PIN_NO_8));
+
     spiEnable(SPI1, ENABLE);
     SPI_SendDataIT(&theSpi, &length, 1);
+    SPI_ReceiveDataIT(&theSpi, &dummyRx, 1);
     SPI_SendDataIT(&theSpi, (uint8_t*)TxBuffer, strlen(TxBuffer));
-
+    SPI_ReceiveDataIT(&theSpi, dummyRead, strlen(TxBuffer));
     spiEnable(SPI1, DISABLE);
-    while(1);
+    delay;
+    }
+
+    //while(1);
 }
 
 void SPI1_IRQHandler(void){
